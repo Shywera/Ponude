@@ -1,5 +1,7 @@
 # Ponude — arhiva kalkulacija i AI generiranje ponuda
 
+[![CI](https://github.com/Shywera/Ponude/actions/workflows/ci.yml/badge.svg)](https://github.com/Shywera/Ponude/actions/workflows/ci.yml)
+
 Web aplikacija koja digitalizira arhivu proizvodnih kalkulacija (Excel) i iz njih
 generira profesionalne ponude (PDF) na 4 jezika, uz AI usporedbu cijena s
 prijašnjim ponudama istog kupca.
