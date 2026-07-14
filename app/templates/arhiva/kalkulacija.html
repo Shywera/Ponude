@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Kalkulacija {{ k.broj }}{% endblock %}
+
+{% macro sekcija(naslov, boja) %}
+<div class="px-3 py-2 text-white text-[11px] font-bold uppercase tracking-wider rounded-t-lg {{ boja }}">{{ naslov }}</div>
+{% endmacro %}
+
+{% block content %}
+<div class="max-w-6xl">
+{% if stavka %}
+<nav class="text-xs text-slate-500 mb-2">
+    <a href="/upiti" class="text-blue-600 hover:underline">Upiti</a>
+    <span class="mx-1">›</span>
+    <a href="/upiti/{{ stavka.upit_id }}" class="text-blue-600 hover:underline">{{ stavka.upit.naslov }}</a>
+    <span class="mx-1">›</span>
+    <span class="font-mono">{{ k.broj }}</span>
+</nav>
+<div class="mb-3 px-4 py-3 rounded-lg bg-violet-50 border-2 border-violet-300 flex items-center justify-between">
+    <div class="text-sm">
+        <span class="font-bold text-violet-800">Odabir marže za upit "{{ stavka.upit.naslov }}"</span>
+        <span class="text-violet-700"> — pronađi maržu u zelenom raspisu ispod i klikni "Odaberi". Trenutno: <b class="font-mono">{{ stavka.marza_pct|hrg }} %</b></span>
+    </div>
+    <a href="/upiti/{{ stavka.upit_id }}" class="text-sm text-violet-700 hover:underline whitespace-nowrap ml-3">← natrag na upit</a>
+</div>
+{% else %}
+<nav class="text-xs text-slate-500 mb-2">
+    <a href="/arhiva" class="text-blue-600 hover:underline">Popis etiketa</a>
+    <span class="mx-1">›</span>
+    <a href="/arhiva/proizvod/{{ k.proizvod_id }}" class="text-blue-600 hover:underline">{{ k.naziv_proizvoda[:45] }}</a>
+    <span class="mx-1">›</span>
+    <span class="font-mono">{{ k.broj }}</span>
+</nav>
+{% endif %}
+
+{% if k.napomena_uvoza %}
+<div class="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-sm">⚠ {{ k.napomena_uvoza }}</div>
+{% endif %}
+
+{% if napomene or true %}
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-3 py-2 rounded-t-lg bg-violet-600 text-white text-[11px] font-bold uppercase tracking-wider flex items-center justify-between">
+        <span>✦ AI pregled — pronađeni problemi</span>
+        <form method="post" action="/arhiva/kalkulacija/{{ k.id }}/ai-pregled">
+            <button class="px-3 py-1 rounded bg-violet-500 text-white text-[11px] font-bold hover:bg-violet-400">
+                {{ 'Ponovi pregled' if napomene else '✦ Pokreni pregled' }}</button>
+        </form>
+    </div>
+    {% if napomene %}
+    <div class="divide-y">
+        {% for n in napomene %}
+        <div class="px-3 py-2 flex items-start gap-3 {{ 'opacity-50' if n.status == 'odbacena' }}">
+            <span class="mt-0.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap
+                  {{ 'bg-red-100 text-red-700' if n.razina == 'kriticno' else ('bg-amber-100 text-amber-700' if n.razina == 'paznja' else 'bg-slate-100 text-slate-600') }}">
+                {{ n.razina }}</span>
+            <div class="flex-1">
+                <p class="text-sm {{ 'line-through' if n.status == 'odbacena' }}">{{ n.tekst }}</p>
+                {% if n.status == 'nova' %}
+                <div class="flex items-center gap-2 mt-1.5">
+                    <form method="post" action="/arhiva/napomena/{{ n.id }}/odluka">
+                        <input type="hidden" name="odluka" value="potvrdjena">
+                        <button class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[11px] font-bold hover:bg-emerald-200"
+                                title="Potvrdi — problem je stvaran, sustav uči">✓ točno</button>
+                    </form>
+                    <form method="post" action="/arhiva/napomena/{{ n.id }}/odluka" class="flex items-center gap-1.5">
+                        <input type="hidden" name="odluka" value="odbacena">
+                        <input type="text" name="komentar" placeholder="zašto nije problem? (opcionalno)"
+                               class="border rounded px-2 py-0.5 text-[11px] w-52">
+                        <button class="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-bold hover:bg-red-200"
+                                title="Odbaci — nije problem, sustav uči">✗ nije problem</button>
+                    </form>
+                </div>
+                {% elif n.status == 'potvrdjena' %}
+                <p class="text-[11px] text-emerald-700 font-bold mt-0.5">✓ potvrdio {{ n.odlucio or '—' }}</p>
+                {% else %}
+                <p class="text-[11px] text-slate-400 mt-0.5">✗ odbacio {{ n.odlucio or '—' }}{% if n.komentar %} — "{{ n.komentar }}"{% endif %}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="px-3 py-3 text-sm text-slate-400">AI pregled još nije pokrenut za ovu kalkulaciju (novi uvozi se pregledavaju automatski).</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ═══ ZAGLAVLJE ═══ -->
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Kalkulacija — zaglavlje', 'bg-slate-700') }}
+    <table class="w-full text-sm">
+        <tr class="border-b">
+            <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500 w-40">Kalkulacija br:</td>
+            <td class="px-3 py-2 font-mono font-bold">{{ k.broj }}</td>
+            <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500 w-36">Normativ br:</td>
+            <td class="px-3 py-2 font-mono">{{ k.normativ_br or '—' }}</td>
+            <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500 w-36">Datum izrade:</td>
+            <td class="px-3 py-2">{{ k.datum.strftime('%d.%m.%Y.') if k.datum else '—' }}</td>
+        </tr>
+        <tr class="border-b">
+            <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500">Kupac:</td>
+            <td class="px-3 py-2 font-semibold" colspan="5">{{ k.kupac_naziv }}</td>
+        </tr>
+        <tr>
+            <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500">Naziv proizvoda:</td>
+            <td class="px-3 py-2 font-semibold" colspan="3">{{ k.naziv_proizvoda }}</td>
+            <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500">Serija:</td>
+            <td class="px-3 py-2 font-mono">{{ k.serija|hr(0) if k.serija else '—' }} {{ k.serija_jedinica or '' }}</td>
+        </tr>
+    </table>
+</div>
+
+<!-- ═══ SPECIFIKACIJE ARTIKLA ═══ -->
+{% if k.artikli %}
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Specifikacije artikla', 'bg-sky-600') }}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-sky-50 text-left text-[11px] uppercase tracking-wide text-sky-800">
+            <tr>
+                <th class="px-2 py-2">artikl</th>
+                <th class="px-2 py-2">naziv</th>
+                <th class="px-2 py-2 text-right">netto širina</th>
+                <th class="px-2 py-2 text-right">netto visina</th>
+                <th class="px-2 py-2 text-right">broj boja</th>
+                <th class="px-2 py-2 text-right">broj prolaza</th>
+                <th class="px-2 py-2">lak</th>
+                <th class="px-2 py-2">dorada</th>
+                <th class="px-2 py-2">tip papira</th>
+                <th class="px-2 py-2 text-right">gramatura</th>
+                <th class="px-2 py-2 text-right">nabavna cijena</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for a in k.artikli %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-2 py-1.5 text-slate-400">{{ a.rb or loop.index }}</td>
+                <td class="px-2 py-1.5">{{ a.naziv or '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ a.sirina_mm|hrg if a.sirina_mm else '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ a.visina_mm|hrg if a.visina_mm else '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ a.broj_boja|hrg if a.broj_boja else '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ a.broj_prolaza|hrg if a.broj_prolaza else '—' }}</td>
+                <td class="px-2 py-1.5">{{ a.lak or '—' }}</td>
+                <td class="px-2 py-1.5">{{ a.dorada or '—' }}</td>
+                <td class="px-2 py-1.5">{{ a.tip_papira or '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ a.gramatura or '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ a.nabavna_cijena or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══ TROŠKOVI ═══ -->
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Ukupni i jedinični troškovi (EUR)', 'bg-indigo-600') }}
+    <table class="w-full text-sm">
+        <thead class="bg-indigo-50 text-left text-[11px] uppercase tracking-wide text-indigo-800">
+            <tr>
+                <th class="px-3 py-2 w-44"></th>
+                <th class="px-3 py-2 text-right">materijal</th>
+                <th class="px-3 py-2 text-right">rad</th>
+                <th class="px-3 py-2 text-right">ukupno mat + rad</th>
+                <th class="px-3 py-2 text-right">vanjska usluga</th>
+                <th class="px-3 py-2 text-right">ukupni troškovi</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            <tr>
+                <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500">ukupni troškovi</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.trosak_materijal|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.trosak_rad|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ (k.trosak_materijal + k.trosak_rad)|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.vanjska_usluga|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono font-bold bg-indigo-50">{{ k.ck_total|hr(2) }}</td>
+            </tr>
+            <tr>
+                <td class="px-3 py-2 bg-slate-50 font-bold text-[11px] uppercase text-slate-500">jedinični troškovi</td>
+                {% if k.serija %}
+                <td class="px-3 py-2 text-right font-mono">{{ (k.trosak_materijal / k.serija)|hr(6) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ (k.trosak_rad / k.serija)|hr(6) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ ((k.trosak_materijal + k.trosak_rad) / k.serija)|hr(6) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ (k.vanjska_usluga / k.serija)|hr(6) }}</td>
+                <td class="px-3 py-2 text-right font-mono font-bold bg-indigo-50">{{ k.ck_po_jedinici|hr(6) }}</td>
+                {% else %}<td colspan="5" class="px-3 py-2 text-right text-slate-400">— serija nepoznata —</td>{% endif %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ═══ PROIZVOD — udjeli ═══ -->
+{% if k.artikli|length > 1 %}
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Proizvod — raspodjela po artiklima', 'bg-violet-600') }}
+    <table class="w-full text-sm">
+        <thead class="bg-violet-50 text-left text-[11px] uppercase tracking-wide text-violet-800">
+            <tr><th class="px-3 py-2">Proizvod</th><th class="px-3 py-2 text-right">udio</th>
+                <th class="px-3 py-2 text-right">količina</th><th class="px-3 py-2 text-right">CK TOTAL (EUR)</th></tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for a in k.artikli %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-1.5">{{ a.naziv or ('artikl ' ~ (a.rb or loop.index)) }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ a.udio|hr(4) if a.udio is not none else '—' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ a.kolicina|hr(0) if a.kolicina else '—' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ a.ck_total|hr(2) if a.ck_total is not none else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- ═══ RASPIS PO MARŽAMA — samo s dozvolom 'ponude' ═══ -->
+{% set _u = request.state.user if request.state.user is defined else none %}
+{% if _u and has_perm(_u.dozvole, 'ponude') %}
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Raspis po maržama — prodajna cijena', 'bg-emerald-600') }}
+    <div class="flex flex-wrap items-center gap-3 px-3 py-2 bg-emerald-50 border-b border-emerald-100">
+        <div class="text-sm">
+            <span class="font-bold text-[11px] uppercase text-slate-500">Stroj:</span>
+            <span class="font-semibold ml-1">{{ k.glavni_stroj or '—' }}</span>
+            {% if sati_stroja %}
+            <span class="font-bold text-[11px] uppercase text-slate-500 ml-3">Vrijeme rada:</span>
+            <span class="font-mono ml-1">{{ '%d:%02d'|format((sati_stroja * 60 // 60)|int, (sati_stroja * 60 % 60)|int) }} h</span>
+            {% endif %}
+        </div>
+        <form method="get" class="flex items-center gap-1.5 text-sm ml-auto">
+            {% if stavka %}<input type="hidden" name="stavka" value="{{ stavka.id }}">{% endif %}
+            <label class="text-[11px] uppercase font-bold text-slate-500">od</label>
+            <input type="number" name="od" value="{{ od }}" min="0" max="300" class="border rounded px-2 py-1 w-16 text-right font-mono">
+            <label class="text-[11px] uppercase font-bold text-slate-500">do</label>
+            <input type="number" name="do" value="{{ do }}" min="0" max="300" class="border rounded px-2 py-1 w-16 text-right font-mono">
+            <label class="text-[11px] uppercase font-bold text-slate-500">po</label>
+            <input type="number" name="korak" value="{{ korak }}" min="1" max="50" class="border rounded px-2 py-1 w-14 text-right font-mono">
+            <button class="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">Raspiši</button>
+        </form>
+    </div>
+    <div class="max-h-96 overflow-y-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-emerald-50 text-left text-[11px] uppercase tracking-wide text-emerald-800 sticky top-0">
+            <tr>
+                <th class="px-3 py-2 text-right">stopa marže (%)</th>
+                <th class="px-3 py-2 text-right">cijena radnog sata stroja (EUR/h)</th>
+                <th class="px-3 py-2 text-right">prodajna cijena po jedinici</th>
+                <th class="px-3 py-2 text-right">financijska razlika (marža)</th>
+                <th class="px-3 py-2 text-right">prodajna vrijednost (EUR)</th>
+                {% if stavka %}<th class="px-3 py-2 text-center w-24">odabir</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for r in marze %}
+            {% set odabrana = stavka and r.pct == stavka.marza_pct %}
+            <tr class="{{ 'bg-violet-100 font-bold ring-2 ring-inset ring-violet-400' if odabrana else ('bg-emerald-100 font-semibold' if r.pct == 30 and not stavka else 'odd:bg-white even:bg-slate-50') }} hover:bg-emerald-50">
+                <td class="px-3 py-1 text-right font-mono font-semibold">{{ r.pct }}</td>
+                <td class="px-3 py-1 text-right font-mono">{{ r.cijena_sata|hr(2) if r.cijena_sata else '—' }}</td>
+                <td class="px-3 py-1 text-right font-mono">{{ r.po_jedinici|hr(4) if r.po_jedinici else '—' }}</td>
+                <td class="px-3 py-1 text-right font-mono text-emerald-700">{{ r.razlika|hr(2) }}</td>
+                <td class="px-3 py-1 text-right font-mono font-semibold">{{ r.prodajna_vrijednost|hr(2) }}</td>
+                {% if stavka %}
+                <td class="px-2 py-1 text-center">
+                    {% if odabrana %}
+                    <span class="text-violet-700 font-bold text-xs">✓ odabrano</span>
+                    {% else %}
+                    <form method="post" action="/upiti/{{ stavka.upit_id }}/stavka/{{ stavka.id }}/uredi">
+                        <input type="hidden" name="marza_pct" value="{{ r.pct }}">
+                        <button class="px-3 py-0.5 rounded-full bg-violet-600 text-white text-[11px] font-bold hover:bg-violet-700">Odaberi</button>
+                    </form>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══ UTROŠAK MATERIJALA ═══ -->
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Utrošak materijala', 'bg-amber-500') }}
+    <table class="w-full text-sm">
+        <thead class="bg-amber-50 text-left text-[11px] uppercase tracking-wide text-amber-800">
+            <tr><th class="px-3 py-2">Šifra</th><th class="px-3 py-2">Naziv</th><th class="px-3 py-2">Jedinica</th>
+                <th class="px-3 py-2 text-right">Količina</th><th class="px-3 py-2 text-right">Jed. nabavna cijena (EUR)</th>
+                <th class="px-3 py-2 text-right">Nabavna vrijednost (EUR)</th></tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for mt in k.materijali %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-1.5 font-mono text-[11px] text-slate-500">{{ mt.sifra or '—' }}</td>
+                <td class="px-3 py-1.5">{{ mt.naziv or '—' }}</td>
+                <td class="px-3 py-1.5 text-slate-500">{{ mt.jedinica or '' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ mt.kolicina|hrg if mt.kolicina is not none else '—' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ mt.jed_cijena|hr(6) if mt.jed_cijena is not none else '—' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ mt.vrijednost|hr(2) if mt.vrijednost is not none else '—' }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="bg-amber-50 font-bold">
+                <td class="px-3 py-2" colspan="5">UKUPNO</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.trosak_materijal|hr(2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ═══ UTROŠAK RADA ═══ -->
+<div class="bg-white rounded-lg shadow mb-4">
+    {{ sekcija('Utrošak rada po strojevima i operacijama', 'bg-rose-500') }}
+    <table class="w-full text-sm">
+        <thead class="bg-rose-50 text-left text-[11px] uppercase tracking-wide text-rose-800">
+            <tr><th class="px-3 py-2">Naziv stroja</th><th class="px-3 py-2">Naziv operacije</th>
+                <th class="px-3 py-2 text-center">proces</th><th class="px-3 py-2 text-right">Količina (h)</th>
+                <th class="px-3 py-2 text-right">Jed. cijena (EUR/h)</th><th class="px-3 py-2 text-right">Iznos (EUR)</th></tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for op in k.operacije %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-1.5 font-medium">{{ op.stroj or '—' }}</td>
+                <td class="px-3 py-1.5">{{ op.operacija or '—' }}</td>
+                <td class="px-3 py-1.5 text-center text-slate-500">{{ op.proces or '—' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{% if op.vrijeme_min is not none %}{{ '%d:%02d'|format((op.vrijeme_min // 60)|int, (op.vrijeme_min % 60)|int) }}{% else %}—{% endif %}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ op.cijena_h|hr(2) if op.cijena_h is not none else '—' }}</td>
+                <td class="px-3 py-1.5 text-right font-mono">{{ op.iznos|hr(2) if op.iznos is not none else '—' }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="bg-rose-50 font-bold">
+                <td class="px-3 py-2" colspan="5">UKUPNO</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.trosak_rad|hr(2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<p class="text-[11px] text-slate-400 mb-6">Izvor: <span class="font-mono">{{ k.datoteka or '—' }}</span> · uvezeno {{ k.uvezeno.strftime('%d.%m.%Y. %H:%M') }} ·
+   troškovi ponovno izračunati iz stavki · prodajna vrijednost = (marža/100 + 1) × ukupni troškovi · cijena radnog sata = financijska razlika / sati glavnog stroja</p>
+</div>
+{% endblock %}

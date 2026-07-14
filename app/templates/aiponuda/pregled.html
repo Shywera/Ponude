@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}AI pregled ponude {{ p.broj }}{% endblock %}
+
+{# odluka-kontrola: prihvati/odbij (obavezno) + "imamo li napomenu? da/ne" + input #}
+{% macro napomena_blok(prefix) %}
+<div class="mt-2 pt-2 border-t border-slate-100" x-show="o" x-cloak>
+    <span class="text-[11px] font-bold text-slate-500 mr-2">Imamo li napomenu?</span>
+    <label class="text-[12px] mr-2 cursor-pointer">
+        <input type="radio" name="{{ prefix }}_nap" value="ne" x-model="n" :required="o!==''" class="accent-slate-500"> ne</label>
+    <label class="text-[12px] cursor-pointer">
+        <input type="radio" name="{{ prefix }}_nap" value="da" x-model="n" class="accent-violet-600"> da</label>
+    <input x-show="n==='da'" x-cloak type="text" name="{{ prefix }}_komentar"
+           placeholder="upiši napomenu — sprema se i AI iz nje uči"
+           :required="n==='da'"
+           class="mt-1 w-full border rounded px-2 py-1 text-sm">
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="max-w-5xl">
+<nav class="text-xs text-slate-500 mb-2">
+    <a href="/ai-ponuda" class="text-blue-600 hover:underline">✦ AI ponuda</a>
+    <span class="mx-1">›</span> pregled prije slanja
+</nav>
+<h1 class="text-xl font-bold mb-1">Obavezan pregled AI odluka — ponuda {{ p.broj }}</h1>
+<p class="text-sm text-slate-500 mb-3">{{ p.kupac_naziv }} · {{ p.stavke|length }} stavki ·
+   stil {{ 'Excel (DAP)' if p.stil == 'excel' else 'Medvedgrad' }} ·
+   <b class="text-violet-700">svaku odluku moraš prihvatiti ili odbiti</b> — tek onda je ponuda spremna za slanje.</p>
+
+{% if greska %}
+<div class="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-300 text-red-700 text-sm">
+    ⚠ Pregled nije potpun — {{ 'sve stavke moraju imati odluku' if greska == 'stavke'
+       else ('kod odbijanja marže upiši svoju maržu' if greska == 'marza' else 'odluči o uvodnom tekstu') }}.</div>
+{% endif %}
+
+<form method="post" action="/ai-ponuda/{{ p.id }}/potvrdi" class="space-y-4">
+
+    <!-- ═══ marže po stavkama ═══ -->
+    {% for ps, s in parovi %}
+    <div class="bg-white rounded-lg shadow" x-data="{ o:'', n:'' }">
+        <div class="px-3 py-2 rounded-t-lg bg-emerald-600 text-white text-[11px] font-bold uppercase tracking-wider">
+            Marža — {{ ps.naziv[:60] }}
+        </div>
+        <div class="p-3">
+            <div class="flex flex-wrap items-center gap-4 text-sm">
+                <span class="text-slate-500">CK: <b class="font-mono text-slate-800">{{ ps.ck_total|hr(2) }} €</b></span>
+                <span class="text-slate-500">količina: <b class="font-mono text-slate-800">{{ ps.kolicina|hr(0) }} tis.</b></span>
+                <span class="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-800 font-bold">✦ AI marža: {{ s.ai_marza_pct|hrg }} %</span>
+                <span class="text-slate-500">→ iznos <b class="font-mono text-slate-800">{{ ps.iznos|hr(2) }} €</b></span>
+            </div>
+            <p class="text-[12px] text-violet-700 mt-1">{{ s.ai_obrazlozenje }}</p>
+            <div class="flex flex-wrap items-center gap-3 mt-2">
+                <label class="flex items-center gap-1.5 text-sm font-bold text-emerald-700 cursor-pointer">
+                    <input type="radio" name="st_{{ s.id }}_odluka" value="prihvati" x-model="o" required class="w-4 h-4 accent-emerald-600">
+                    ✓ Prihvati</label>
+                <label class="flex items-center gap-1.5 text-sm font-bold text-red-700 cursor-pointer">
+                    <input type="radio" name="st_{{ s.id }}_odluka" value="odbij" x-model="o" class="w-4 h-4 accent-red-600">
+                    ✗ Odbij</label>
+                <span x-show="o==='odbij'" x-cloak class="flex items-center gap-1.5 text-sm">
+                    moja marža: <input type="text" name="st_{{ s.id }}_marza" :required="o==='odbij'"
+                                       class="border rounded px-2 py-1 w-20 text-right font-mono"> %</span>
+            </div>
+            {{ napomena_blok('st_' ~ s.id) }}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- ═══ uvodni tekst ═══ -->
+    <div class="bg-white rounded-lg shadow" x-data="{ o:'', n:'' }">
+        <div class="px-3 py-2 rounded-t-lg bg-sky-600 text-white text-[11px] font-bold uppercase tracking-wider">
+            Uvodni tekst ponude ({{ p.jezik }})
+        </div>
+        <div class="p-3">
+            <p class="text-sm bg-slate-50 border rounded-lg p-2 whitespace-pre-line">{{ p.uvodni_tekst }}</p>
+            <div class="flex flex-wrap items-center gap-3 mt-2">
+                <label class="flex items-center gap-1.5 text-sm font-bold text-emerald-700 cursor-pointer">
+                    <input type="radio" name="tekst_odluka" value="prihvati" x-model="o" required class="w-4 h-4 accent-emerald-600">
+                    ✓ Prihvati</label>
+                <label class="flex items-center gap-1.5 text-sm font-bold text-red-700 cursor-pointer">
+                    <input type="radio" name="tekst_odluka" value="odbij" x-model="o" class="w-4 h-4 accent-red-600">
+                    ✗ Odbij</label>
+            </div>
+            <textarea x-show="o==='odbij'" x-cloak name="tekst_novi" rows="3"
+                      placeholder="upiši svoj uvodni tekst" :required="o==='odbij'"
+                      class="mt-2 w-full border rounded p-2 text-sm"></textarea>
+            {{ napomena_blok('tekst') }}
+        </div>
+    </div>
+
+    <!-- ═══ AI pronađeni problemi na kalkulacijama ═══ -->
+    {% if problemi %}
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-3 py-2 rounded-t-lg bg-red-500 text-white text-[11px] font-bold uppercase tracking-wider">
+            ✦ AI pronašao probleme na kalkulacijama — odluči za svaki
+        </div>
+        <div class="divide-y">
+            {% for pr in problemi %}
+            <div class="p-3" x-data="{ o:'', n:'' }">
+                <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mr-2
+                      {{ 'bg-red-100 text-red-700' if pr.razina == 'kriticno' else 'bg-amber-100 text-amber-700' }}">{{ pr.razina }}</span>
+                <span class="text-sm">{{ pr.tekst }}</span>
+                <div class="flex flex-wrap items-center gap-3 mt-2">
+                    <label class="flex items-center gap-1.5 text-sm font-bold text-emerald-700 cursor-pointer">
+                        <input type="radio" name="prob_{{ pr.id }}_odluka" value="potvrdjena" x-model="o" required class="w-4 h-4 accent-emerald-600">
+                        ✓ Točno, problem je</label>
+                    <label class="flex items-center gap-1.5 text-sm font-bold text-slate-500 cursor-pointer">
+                        <input type="radio" name="prob_{{ pr.id }}_odluka" value="odbacena" x-model="o" class="w-4 h-4 accent-slate-500">
+                        ✗ Nije problem</label>
+                </div>
+                {{ napomena_blok('prob_' ~ pr.id) }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="flex items-center justify-between bg-white rounded-lg shadow p-4">
+        <p class="text-sm text-slate-500">Ukupno ponude: <b class="font-mono">{{ p.ukupno|hr(2) }} €</b>
+           {% if p.pdv_obracun %} + PDV {{ p.pdv_stopa|hrg }} %{% endif %} —
+           iznosi se automatski preračunaju ako odbiješ neku maržu.</p>
+        <button class="px-6 py-2.5 rounded-lg bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800">
+            ✓ Potvrdi pregled — ponuda spremna za slanje</button>
+    </div>
+</form>
+</div>
+{% endblock %}

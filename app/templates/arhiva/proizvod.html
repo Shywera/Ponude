@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ p.naziv }}{% endblock %}
+
+{% macro pct_badge(delta) %}
+    {% if delta is none %}<span class="text-slate-400">—</span>
+    {% elif delta >= 15 or delta <= -15 %}<span class="font-bold text-red-600">{{ delta|hr(1, true) }} %</span>
+    {% elif delta >= 5 or delta <= -5 %}<span class="font-bold text-amber-600">{{ delta|hr(1, true) }} %</span>
+    {% else %}<span class="font-semibold text-emerald-600">{{ delta|hr(1, true) }} %</span>
+    {% endif %}
+{% endmacro %}
+
+{% block content %}
+<a href="/arhiva" class="text-xs text-blue-600 hover:underline">&larr; Popis etiketa</a>
+<h1 class="text-xl font-bold mt-1">{{ p.naziv }}</h1>
+<p class="text-sm text-slate-500 mb-4">{{ p.kupac.naziv }}{% if p.sifra_artikla %} · šifra artikla: <span class="font-mono">{{ p.sifra_artikla }}</span>{% endif %}</p>
+
+<h2 class="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">Kronologija kalkulacija</h2>
+<div class="bg-white rounded-lg shadow overflow-hidden mb-6">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+                <th class="px-3 py-2">Datum</th>
+                <th class="px-3 py-2">Kalkulacija br.</th>
+                <th class="px-3 py-2 text-right">Serija</th>
+                <th class="px-3 py-2 text-right">Materijal</th>
+                <th class="px-3 py-2 text-right">Rad</th>
+                <th class="px-3 py-2 text-right">CK ukupno</th>
+                <th class="px-3 py-2 text-right">CK / jed.</th>
+                <th class="px-3 py-2 text-center">Δ CK/jed.</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for k in kalkulacije %}
+            {% set u = usporedbe.get(k.id) %}
+            <tr class="hover:bg-blue-50 cursor-pointer" onclick="window.location='/arhiva/kalkulacija/{{ k.id }}'">
+                <td class="px-3 py-2 whitespace-nowrap">{{ k.datum or '—' }}</td>
+                <td class="px-3 py-2 font-mono text-slate-600">{{ k.broj }}</td>
+                <td class="px-3 py-2 text-right">{{ k.serija|hr(0) if k.serija else '—' }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.trosak_materijal|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.trosak_rad|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono font-semibold">{{ k.ck_total|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ k.ck_po_jedinici|hr(4) if k.ck_po_jedinici else '—' }}</td>
+                <td class="px-3 py-2 text-center">{{ pct_badge((u.get('ck_po_jedinici') or {}).get('delta_pct') if u else none) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% set zadnja = kalkulacije[0] if kalkulacije else none %}
+{% set u = usporedbe.get(zadnja.id) if zadnja else none %}
+{% if u %}
+<h2 class="font-bold text-sm uppercase tracking-wide text-slate-500 mb-2">
+    Razlike: {{ u.nova_broj }} ({{ u.nova_datum }}) prema {{ u.stara_broj }} ({{ u.stara_datum }})
+</h2>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow p-4">
+        <h3 class="font-semibold text-sm mb-2">Trošak</h3>
+        <table class="w-full text-sm">
+            <tr class="border-b"><td class="py-1 text-slate-500">CK po jedinici</td>
+                <td class="py-1 text-right font-mono">{{ u.ck_po_jedinici.staro|hr(4) if u.ck_po_jedinici.staro else '—' }} → {{ u.ck_po_jedinici.novo|hr(4) if u.ck_po_jedinici.novo else '—' }}</td>
+                <td class="py-1 text-right w-20">{{ pct_badge(u.ck_po_jedinici.delta_pct) }}</td></tr>
+            <tr class="border-b"><td class="py-1 text-slate-500">CK ukupno</td>
+                <td class="py-1 text-right font-mono">{{ u.ck_total.staro|hr(2) }} → {{ u.ck_total.novo|hr(2) }}</td>
+                <td class="py-1 text-right">{{ pct_badge(u.ck_total.delta_pct) }}</td></tr>
+            <tr class="border-b"><td class="py-1 text-slate-500">Materijal</td>
+                <td class="py-1 text-right font-mono">{{ u.trosak_materijal.staro|hr(2) }} → {{ u.trosak_materijal.novo|hr(2) }}</td>
+                <td class="py-1 text-right">{{ pct_badge(u.trosak_materijal.delta_pct) }}</td></tr>
+            <tr class="border-b"><td class="py-1 text-slate-500">Rad</td>
+                <td class="py-1 text-right font-mono">{{ u.trosak_rad.staro|hr(2) }} → {{ u.trosak_rad.novo|hr(2) }}</td>
+                <td class="py-1 text-right">{{ pct_badge(u.trosak_rad.delta_pct) }}</td></tr>
+            <tr><td class="py-1 text-slate-500">Serija</td>
+                <td class="py-1 text-right font-mono">{{ u.serija.staro|hr(0) if u.serija.staro else '—' }} → {{ u.serija.novo|hr(0) if u.serija.novo else '—' }}</td>
+                <td></td></tr>
+        </table>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-4">
+        <h3 class="font-semibold text-sm mb-2">Materijali i strojevi</h3>
+        {% if u.materijali.promjene_cijena %}
+        <p class="text-[11px] uppercase text-slate-400 font-bold mt-1">Promjene nabavnih cijena</p>
+        <table class="w-full text-sm mb-2">
+            {% for pm in u.materijali.promjene_cijena %}
+            <tr class="border-b"><td class="py-1 pr-2">{{ (pm.naziv or pm.sifra)[:45] }}</td>
+                <td class="py-1 text-right font-mono whitespace-nowrap">{{ pm.staro|hr(4) }} → {{ pm.novo|hr(4) }}</td>
+                <td class="py-1 text-right w-20">{{ pct_badge(pm.delta_pct) }}</td></tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+        {% if u.materijali.dodani %}
+        <p class="text-[11px] uppercase text-slate-400 font-bold mt-1">Dodani materijali</p>
+        <ul class="text-sm mb-2">{% for x in u.materijali.dodani %}<li class="py-0.5 text-emerald-700">+ {{ (x.naziv or x.sifra)[:55] }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if u.materijali.uklonjeni %}
+        <p class="text-[11px] uppercase text-slate-400 font-bold mt-1">Uklonjeni materijali</p>
+        <ul class="text-sm mb-2">{% for x in u.materijali.uklonjeni %}<li class="py-0.5 text-red-700">− {{ (x.naziv or x.sifra)[:55] }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if u.strojevi.dodani or u.strojevi.uklonjeni %}
+        <p class="text-[11px] uppercase text-slate-400 font-bold mt-1">Strojevi</p>
+        <ul class="text-sm">
+            {% for s in u.strojevi.dodani %}<li class="py-0.5 text-emerald-700">+ {{ s }}</li>{% endfor %}
+            {% for s in u.strojevi.uklonjeni %}<li class="py-0.5 text-red-700">− {{ s }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if not (u.materijali.promjene_cijena or u.materijali.dodani or u.materijali.uklonjeni or u.strojevi.dodani or u.strojevi.uklonjeni) %}
+        <p class="text-sm text-slate-400">Nema promjena u materijalima ni strojevima.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-4 bg-white rounded-lg shadow p-4 border-l-4
+            {% if zadnja.ai_razina == 'kriticno' %}border-red-500{% elif zadnja.ai_razina == 'paznja' %}border-amber-500{% elif zadnja.ai_razina %}border-emerald-500{% else %}border-slate-200{% endif %}">
+    <div class="flex items-center justify-between mb-1">
+        <h3 class="font-semibold text-sm">AI objašnjenje razlike</h3>
+        <form method="post" action="/arhiva/kalkulacija/{{ zadnja.id }}/ai">
+            <button class="px-3 py-1 rounded bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700">
+                {{ 'Regeneriraj' if zadnja.ai_sazetak else '✦ Generiraj objašnjenje' }}
+            </button>
+        </form>
+    </div>
+    {% if zadnja.ai_sazetak %}
+        <p class="text-sm font-medium">{{ zadnja.ai_sazetak }}</p>
+        <div class="flex items-center gap-2 mt-2">
+            <span class="text-[10px] uppercase font-bold text-slate-400">Je li objašnjenje dobro?</span>
+            <form method="post" action="/arhiva/kalkulacija/{{ zadnja.id }}/ai-ocjena" class="flex items-center gap-1.5">
+                <input type="hidden" name="ocjena" value="dobro">
+                <button class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[11px] font-bold hover:bg-emerald-200"
+                        title="Označi kao dobro — sustav uči">✓ dobro</button>
+            </form>
+            <form method="post" action="/arhiva/kalkulacija/{{ zadnja.id }}/ai-ocjena" class="flex items-center gap-1.5">
+                <input type="hidden" name="ocjena" value="lose">
+                <input type="text" name="komentar" placeholder="zašto ne? (opcionalno)"
+                       class="border rounded px-2 py-0.5 text-[11px] w-44">
+                <button class="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-bold hover:bg-red-200"
+                        title="Označi kao loše — sustav uči">✗ nije dobro</button>
+            </form>
+        </div>
+        {% if zadnja.ai_razlozi %}
+        <ul class="text-sm text-slate-600 mt-2 space-y-1 list-disc list-inside">
+            {% for r in zadnja.ai_razlozi | fromjson %}
+            <li>{{ r }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    {% else %}
+        <p class="text-sm text-slate-400">Objašnjenje još nije generirano.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

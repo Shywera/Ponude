@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Ponude{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Ponude</h1>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+                <th class="px-3 py-2">Broj</th>
+                <th class="px-3 py-2">Datum</th>
+                <th class="px-3 py-2">Kupac</th>
+                <th class="px-3 py-2 text-center">Stavki</th>
+                <th class="px-3 py-2 text-right">Ukupno (EUR)</th>
+                <th class="px-3 py-2"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for p in ponude %}
+            <tr class="hover:bg-blue-50 cursor-pointer" onclick="window.location='/ponude/{{ p.id }}'">
+                <td class="px-3 py-2 font-mono font-semibold">{{ p.broj }}</td>
+                <td class="px-3 py-2 whitespace-nowrap">{{ p.datum }}</td>
+                <td class="px-3 py-2">{{ p.kupac_naziv }}
+                    {% if p.status == 'prihvacena' %}<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">✓ prihvaćena</span>
+                    {% elif p.status == 'odbijena' %}<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">✗ odbijena</span>
+                    {% elif p.status == 'poslana' %}<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">poslana</span>
+                    {% elif p.status == 'ai_nacrt' %}<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">✦ čeka pregled</span>
+                    {% endif %}</td>
+                <td class="px-3 py-2 text-center">{{ p.stavke|length }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ p.ukupno|hr(2) }}</td>
+                <td class="px-3 py-2 text-right" onclick="event.stopPropagation()">
+                    <a href="/ponude/{{ p.id }}/pdf" target="_blank" class="text-blue-600 text-xs hover:underline">PDF ⤓</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-3 py-8 text-center text-slate-400">Nema ponuda — generiraju se iz upita.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

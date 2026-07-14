@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prijava — Ponude</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-6">
+            <div class="text-white font-bold text-2xl tracking-wider">PONUDE</div>
+            <div class="text-slate-400 text-sm mt-1">Kalkulacije &amp; ponude</div>
+        </div>
+        <form method="post" action="/login" class="bg-white rounded-xl shadow-xl p-6 space-y-4">
+            {% if greska %}
+            <div class="px-3 py-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{{ greska }}</div>
+            {% endif %}
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Korisničko ime</label>
+                <input type="text" name="username" required autofocus autocomplete="username"
+                       class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Lozinka</label>
+                <input type="password" name="lozinka" required autocomplete="current-password"
+                       class="mt-1 w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <button class="w-full py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">Prijava</button>
+        </form>
+    </div>
+</body>
+</html>

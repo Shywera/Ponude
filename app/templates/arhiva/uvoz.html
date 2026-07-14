@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Uvoz kalkulacija{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Uvoz kalkulacija</h1>
+
+<div class="bg-white rounded-lg shadow p-5 max-w-2xl">
+    <form method="post" action="/arhiva/uvoz" enctype="multipart/form-data" class="space-y-3">
+        <p class="text-sm text-slate-600">Odaberi jednu ili više Excel datoteka
+           <span class="font-mono text-[12px]">"Prodajna cijena &lt;broj&gt;.xlsx"</span>.
+           Troškovi se ponovno izračunavaju iz stavki (materijal + rad) — greške u
+           izvornim formulama ne utječu na rezultat.</p>
+        <input type="file" name="datoteke" multiple accept=".xlsx" required
+               class="block w-full text-sm border rounded p-2 bg-slate-50">
+        <button class="px-4 py-2 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">Uvezi</button>
+    </form>
+</div>
+
+{% if rezultati %}
+<h2 class="font-bold text-sm uppercase tracking-wide text-slate-500 mt-6 mb-2">Rezultat uvoza</h2>
+<div class="space-y-2 max-w-3xl">
+    {% for r in rezultati %}
+    <div class="bg-white rounded-lg shadow px-4 py-3 border-l-4
+                {% if r.status == 'ok' %}border-emerald-500{% elif r.status == 'preskoceno' %}border-slate-300{% else %}border-red-500{% endif %}">
+        <div class="flex items-center justify-between">
+            <div>
+                <span class="font-mono text-[12px] text-slate-500">{{ r.ime }}</span>
+                <p class="text-sm {% if r.status == 'greska' %}text-red-700{% endif %}">{{ r.poruka }}</p>
+                {% for up in r.upozorenja %}
+                <p class="text-[12px] text-amber-700">⚠ {{ up }}</p>
+                {% endfor %}
+            </div>
+            {% if r.kid %}
+            <a href="/arhiva/kalkulacija/{{ r.kid }}" class="text-xs text-blue-600 hover:underline whitespace-nowrap ml-3">Otvori →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

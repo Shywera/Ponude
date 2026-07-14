@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Upiti{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold">Upiti</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow p-4 mb-5 max-w-2xl">
+    <h2 class="font-semibold text-sm mb-2">Novi upit</h2>
+    <script id="kupci-data" type="application/json">[{% for k in kupci %}{"id":{{ k.id }},"n":{{ k.naziv|tojson }}}{{ ',' if not loop.last }}{% endfor %}]</script>
+    <form method="post" action="/upiti/novi" class="flex gap-2"
+          x-data="{ open: false, q: '', id: '',
+                    kupci: JSON.parse(document.getElementById('kupci-data').textContent),
+                    get f(){ let s=this.q.toLowerCase(); return this.kupci.filter(function(k){return k.n.toLowerCase().indexOf(s)!==-1}).slice(0,50) } }">
+        <div class="relative w-72" @click.outside="open=false" @keydown.escape.window="open=false">
+            <input type="text" required placeholder="Upiši kupca za pretragu..."
+                   x-model="q" @focus="open=true" @click="open=true"
+                   :class="id ? 'border-emerald-400' : ''"
+                   class="w-full border rounded px-3 py-1.5 text-sm">
+            <input type="hidden" name="kupac_id" :value="id" required>
+            <div x-show="open" x-cloak
+                 class="absolute z-30 mt-1 w-full max-h-72 overflow-y-auto bg-white border rounded-lg shadow-xl">
+                <template x-for="k in f" :key="k.id">
+                    <div @click="id=k.id; q=k.n; open=false"
+                         class="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer" x-text="k.n"></div>
+                </template>
+                <div x-show="f.length===0" class="px-3 py-2 text-sm text-slate-400">Nema kupca za "<span x-text="q"></span>".</div>
+            </div>
+        </div>
+        <input type="text" name="naslov" required placeholder="Naslov upita (npr. 'Etikete rujan 2026')"
+               class="border rounded px-3 py-1.5 text-sm flex-1">
+        <button class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">+ Kreiraj</button>
+    </form>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+                <th class="px-3 py-2">#</th>
+                <th class="px-3 py-2">Datum</th>
+                <th class="px-3 py-2">Kupac</th>
+                <th class="px-3 py-2">Naslov</th>
+                <th class="px-3 py-2 text-center">Stavki</th>
+                <th class="px-3 py-2 text-center">Status</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for u in upiti %}
+            <tr class="hover:bg-blue-50 cursor-pointer" onclick="window.location='/upiti/{{ u.id }}'">
+                <td class="px-3 py-2 text-slate-400">{{ u.id }}</td>
+                <td class="px-3 py-2 whitespace-nowrap">{{ u.datum }}</td>
+                <td class="px-3 py-2">{{ u.kupac.naziv }}</td>
+                <td class="px-3 py-2 font-medium">{{ u.naslov }}</td>
+                <td class="px-3 py-2 text-center">{{ u.stavke|length }}</td>
+                <td class="px-3 py-2 text-center">
+                    {% if u.status == 'ponuda' %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">ponuda izdana</span>
+                    {% else %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-blue-100 text-blue-700">otvoren</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-3 py-8 text-center text-slate-400">Nema upita — kreiraj prvi gore.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

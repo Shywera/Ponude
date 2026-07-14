@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Log aktivnosti{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Log aktivnosti <span class="text-sm font-normal text-slate-400">({{ ukupno }} zapisa)</span></h1>
+
+<div class="bg-white rounded-lg shadow max-w-4xl overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-700 text-left text-[11px] uppercase tracking-wide text-white">
+            <tr>
+                <th class="px-3 py-2">Vrijeme</th>
+                <th class="px-3 py-2">Korisnik</th>
+                <th class="px-3 py-2">Akcija</th>
+                <th class="px-3 py-2">Putanja</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for r in redovi %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-1.5 whitespace-nowrap text-slate-500">{{ r.timestamp.strftime('%d.%m.%Y. %H:%M:%S') if r.timestamp else '—' }}</td>
+                <td class="px-3 py-1.5 font-semibold">{{ r.username or '—' }}</td>
+                <td class="px-3 py-1.5">{{ r.akcija }}</td>
+                <td class="px-3 py-1.5 font-mono text-[11px] text-slate-400">{{ r.putanja }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="px-3 py-8 text-center text-slate-400">Log je prazan.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="flex gap-2 mt-3">
+    {% if stranica > 1 %}<a href="?stranica={{ stranica - 1 }}" class="px-3 py-1.5 rounded bg-white shadow text-sm text-blue-600 hover:bg-blue-50">← Novije</a>{% endif %}
+    {% if ima_jos %}<a href="?stranica={{ stranica + 1 }}" class="px-3 py-1.5 rounded bg-white shadow text-sm text-blue-600 hover:bg-blue-50">Starije →</a>{% endif %}
+</div>
+{% endblock %}

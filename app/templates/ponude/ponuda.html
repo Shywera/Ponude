@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Ponuda {{ p.broj }}{% endblock %}
+
+{% block content %}
+<a href="/ponude" class="text-xs text-blue-600 hover:underline">&larr; Ponude</a>
+<div class="flex items-center justify-between mt-1 mb-1">
+    <h1 class="text-xl font-bold">Ponuda {{ p.broj }}
+        <span class="ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold align-middle
+                     {{ 'bg-emerald-100 text-emerald-700' if p.stil == 'excel' else 'bg-violet-100 text-violet-700' }}">
+            {{ 'Excel (DAP)' if p.stil == 'excel' else 'Medvedgrad' }}</span>
+    </h1>
+    <div class="flex gap-2 items-center">
+        {% if p.status == 'ai_nacrt' %}
+        <a href="/ai-ponuda/{{ p.id }}/pregled"
+           class="px-4 py-1.5 rounded bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 animate-pulse">
+            ✦ Obavezan AI pregled →</a>
+        {% else %}
+        {% if p.stil == 'excel' %}
+        <a href="/ponude/{{ p.id }}/xlsx"
+           class="px-4 py-1.5 rounded bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800">⤓ Excel (.xlsx)</a>
+        {% endif %}
+        <a href="/ponude/{{ p.id }}/pdf" target="_blank"
+           class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">⤓ PDF</a>
+        {% endif %}
+    </div>
+</div>
+<div class="flex items-center gap-3 mb-4">
+    <p class="text-sm text-slate-500">{{ p.kupac_naziv }} · {{ p.datum }} · vrijedi {{ p.vrijedi_dana }} dana
+       · iz upita <a href="/upiti/{{ p.upit_id }}" class="text-blue-600 hover:underline">#{{ p.upit_id }}</a></p>
+    <form method="post" action="/ponude/{{ p.id }}/status" class="flex items-center gap-1.5">
+        <span class="text-[10px] uppercase font-bold text-slate-400">Status:</span>
+        <select name="status" onchange="this.form.submit()"
+                class="border rounded px-2 py-1 text-[12px] bg-white font-semibold
+                       {{ 'text-emerald-700' if p.status == 'prihvacena' else ('text-red-600' if p.status == 'odbijena' else 'text-slate-700') }}">
+            <option value="nacrt" {{ 'selected' if p.status == 'nacrt' }}>nacrt</option>
+            {% if p.status == 'ai_nacrt' %}<option value="ai_nacrt" selected>AI nacrt (čeka pregled)</option>{% endif %}
+            <option value="za_slanje" {{ 'selected' if p.status == 'za_slanje' }}>za slanje</option>
+            <option value="poslana" {{ 'selected' if p.status == 'poslana' }}>poslana kupcu</option>
+            <option value="prihvacena" {{ 'selected' if p.status == 'prihvacena' }}>✓ kupac prihvatio</option>
+            <option value="odbijena" {{ 'selected' if p.status == 'odbijena' }}>✗ kupac odbio</option>
+        </select>
+    </form>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+    <div class="xl:col-span-2">
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-3 py-2">#</th>
+                        <th class="px-3 py-2">Naziv</th>
+                        <th class="px-3 py-2 text-right">Količina</th>
+                        {% if p.stil == 'excel' %}
+                        <th class="px-3 py-2 text-right">EXW /1000</th>
+                        <th class="px-3 py-2 text-right">prijevoz /1000</th>
+                        <th class="px-3 py-2 text-right">DAP /1000</th>
+                        {% endif %}
+                        <th class="px-3 py-2 text-right">Jed. cijena</th>
+                        <th class="px-3 py-2 text-right">Iznos (EUR)</th>
+                        <th class="px-3 py-2 text-right text-slate-400">Marža % <span class="normal-case">(interno)</span></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for s in p.stavke %}
+                    <tr>
+                        <td class="px-3 py-2 text-slate-400">{{ loop.index }}</td>
+                        <td class="px-3 py-2">{{ s.naziv }}</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ s.kolicina|hr(0) if s.kolicina else '—' }} {{ s.jedinica or '' }}</td>
+                        {% if p.stil == 'excel' %}
+                        <td class="px-3 py-2 text-right font-mono">{{ s.exw_1000|hr(4) if s.exw_1000 is not none else '—' }}</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ s.prijevoz_1000|hr(4) if s.prijevoz_1000 is not none else '—' }}</td>
+                        <td class="px-3 py-2 text-right font-mono font-bold">{{ s.dap_1000|hr(4) if s.dap_1000 is not none else '—' }}</td>
+                        {% endif %}
+                        <td class="px-3 py-2 text-right font-mono">{{ s.jed_cijena|hr(4) if s.jed_cijena else '—' }}</td>
+                        <td class="px-3 py-2 text-right font-mono font-semibold">{{ s.iznos|hr(2) }}</td>
+                        <td class="px-3 py-2 text-right font-mono text-slate-400">{{ s.marza_pct|hrg if s.marza_pct is not none else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-slate-50 font-semibold">
+                        <td class="px-3 py-2" colspan="{{ 7 if p.stil == 'excel' else 4 }}">{{ 'Osnovica (EUR)' if p.pdv_obracun else 'UKUPNO (EUR)' }}</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ p.ukupno|hr(2) }}</td>
+                        <td></td>
+                    </tr>
+                    {% if p.pdv_obracun %}
+                    <tr class="bg-slate-50">
+                        <td class="px-3 py-1.5" colspan="{{ 7 if p.stil == 'excel' else 4 }}">PDV {{ p.pdv_stopa|hrg }} %</td>
+                        <td class="px-3 py-1.5 text-right font-mono">{{ p.pdv_iznos|hr(2) }}</td>
+                        <td></td>
+                    </tr>
+                    <tr class="bg-emerald-50 font-bold border-t-2 border-emerald-200">
+                        <td class="px-3 py-2" colspan="{{ 7 if p.stil == 'excel' else 4 }}">UKUPNO s PDV-om (EUR)</td>
+                        <td class="px-3 py-2 text-right font-mono">{{ p.ukupno_s_pdv|hr(2) }}</td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% if p.pdv_obracun %}
+        <p class="text-[12px] text-emerald-700 mt-2 font-medium">✓ Kupac u Hrvatskoj — na cijene se obračunava PDV {{ p.pdv_stopa|hrg }} %.</p>
+        {% else %}
+        <p class="text-[12px] text-blue-700 mt-2 font-medium">✈ Strani kupac — PDV se ne obračunava (prijenos porezne obveze / reverse charge).</p>
+        {% endif %}
+        <p class="text-[11px] text-slate-400 mt-1">Stavke su zamrznute u trenutku generiranja ponude — kasnije promjene kalkulacija ili marži u upitu ne mijenjaju ovu ponudu. Kolona "Marža %" je interna i ne ispisuje se u PDF.</p>
+    </div>
+
+    <div>
+        <form method="post" action="/ponude/{{ p.id }}/tekst" class="bg-white rounded-lg shadow p-4 space-y-3">
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Uvodni tekst (ide u PDF)</label>
+                <textarea name="uvodni_tekst" rows="4" class="mt-1 w-full border rounded p-2 text-sm">{{ p.uvodni_tekst or '' }}</textarea>
+            </div>
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Napomene (ide u PDF)</label>
+                <textarea name="napomene" rows="2" class="mt-1 w-full border rounded p-2 text-sm">{{ p.napomene or '' }}</textarea>
+            </div>
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Jezik ponude</label>
+                <select name="jezik" class="mt-1 w-full border rounded px-2 py-1.5 text-sm bg-white">
+                    <option value="hr" {{ 'selected' if p.jezik == 'hr' }}>Hrvatski</option>
+                    <option value="en" {{ 'selected' if p.jezik == 'en' }}>English</option>
+                    <option value="de" {{ 'selected' if p.jezik == 'de' }}>Deutsch</option>
+                    <option value="it" {{ 'selected' if p.jezik == 'it' }}>Italiano</option>
+                </select>
+                <p class="text-[10px] text-slate-400 mt-0.5">Prevodi sve oznake u PDF-u; standardni uvodni tekst se prevede automatski.</p>
+            </div>
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Paritet</label>
+                <div class="flex gap-2 mt-1">
+                    <select name="paritet" class="border rounded px-2 py-1.5 text-sm bg-white w-40">
+                        {% for opt in pariteti %}
+                        <option value="{{ opt }}" {{ 'selected' if par_sel == opt }}>{{ opt }}</option>
+                        {% endfor %}
+                        {% if not par_sel and p.paritet %}<option value="{{ p.paritet }}" selected>{{ p.paritet }}</option>{% endif %}
+                    </select>
+                    <input type="text" name="paritet_mjesto" value="{{ par_mjesto if par_sel else '' }}"
+                           placeholder="mjesto/odredište (npr. Champigneulles, France)"
+                           class="flex-1 border rounded px-2 py-1.5 text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="text-[11px] uppercase tracking-wide text-slate-500 font-bold">Potpisnik (za tvrtku)</label>
+                <input type="text" name="potpisnik" value="{{ p.potpisnik or '' }}" placeholder="ime i prezime" class="mt-1 w-full border rounded px-2 py-1.5 text-sm">
+            </div>
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="pdv_obracun" value="1" {% if p.pdv_obracun %}checked{% endif %} class="w-4 h-4 accent-emerald-500">
+                Obračunaj PDV {{ p.pdv_stopa|hrg }} % (kupac u HR)
+            </label>
+            <button class="px-4 py-1.5 rounded bg-slate-700 text-white text-sm font-semibold hover:bg-slate-800">Spremi</button>
+        </form>
+        <p class="text-[11px] text-slate-400 mt-2">PDV status se postavlja automatski iz šifrarnika <a href="/arhiva/kupci" class="text-blue-600 hover:underline">Kupci</a> pri generiranju; ovdje se može ručno promijeniti za ovu ponudu.</p>
+    </div>
+</div>
+{% endblock %}

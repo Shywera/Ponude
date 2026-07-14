@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Kupci{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-1">Kupci <span class="text-sm font-normal text-slate-400">({{ ukupno }} u šifrarniku)</span></h1>
+<p class="text-sm text-slate-500 mb-3">Klik na kupca otvara uređivanje. Podaci idu u zaglavlje PDF ponude.
+   "U HR" određuje PDV: <b>da</b> → obračun 25 %, <b>ne</b> → reverse charge.</p>
+
+<form method="get" class="flex gap-2 mb-4 max-w-3xl">
+    <input type="text" name="q" value="{{ q }}" placeholder="Traži po nazivu ili OIB-u..."
+           class="border rounded px-3 py-2 text-sm flex-1">
+    <button class="px-4 py-2 rounded bg-slate-700 text-white text-sm font-semibold">Traži</button>
+    {% if q %}<a href="/arhiva/kupci" class="px-4 py-2 rounded bg-slate-200 text-slate-600 text-sm">Poništi</a>{% endif %}
+</form>
+
+<div class="bg-white rounded-lg shadow max-w-5xl">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-700 text-left text-[11px] uppercase tracking-wide text-white">
+            <tr>
+                <th class="px-3 py-2 rounded-tl-lg">Naziv</th>
+                <th class="px-3 py-2">OIB / VAT</th>
+                <th class="px-3 py-2">Adresa</th>
+                <th class="px-3 py-2 text-center rounded-tr-lg">U HR (PDV)</th>
+            </tr>
+        </thead>
+        {% for k in kupci %}
+        <tbody x-data="{ open: false }" class="border-b last:border-0">
+            <tr @click="open = !open" class="cursor-pointer hover:bg-blue-50 {{ 'bg-slate-50' if loop.index is even }}">
+                <td class="px-3 py-2 font-medium">
+                    <span x-text="open ? '▾' : '▸'" class="text-slate-400 mr-1"></span>{{ k.naziv }}
+                    {% if k.proizvodi %}<span class="ml-1 text-[10px] px-1.5 rounded bg-blue-100 text-blue-700">{{ k.proizvodi|length }} proizvoda</span>{% endif %}
+                </td>
+                <td class="px-3 py-2 font-mono text-[12px] text-slate-500">{{ k.oib or '—' }}</td>
+                <td class="px-3 py-2 text-slate-500">{{ (k.adresa or '—')[:50] }}</td>
+                <td class="px-3 py-2 text-center">
+                    {% if k.u_hrvatskoj %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">da</span>
+                    {% else %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700">ne</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr x-show="open" x-cloak>
+                <td colspan="4" class="px-3 pb-3 pt-1 bg-slate-50">
+                    <form method="post" action="/arhiva/kupci/{{ k.id }}/uredi"
+                          class="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+                        <label class="text-xs text-slate-500">Adresa
+                            <input type="text" name="adresa" value="{{ k.adresa or '' }}"
+                                   class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900"></label>
+                        <label class="text-xs text-slate-500">OIB / VAT
+                            <input type="text" name="oib" value="{{ k.oib or '' }}"
+                                   class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900 font-mono"></label>
+                        <label class="text-xs text-slate-500">Kontakt (tel / email)
+                            <input type="text" name="kontakt" value="{{ k.kontakt or '' }}"
+                                   class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900"></label>
+                        <label class="text-xs text-slate-500">Jezik ponuda
+                            <select name="jezik" class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900 bg-white">
+                                <option value="hr" {{ 'selected' if k.jezik == 'hr' }}>Hrvatski</option>
+                                <option value="en" {{ 'selected' if k.jezik == 'en' or not k.jezik }}>English</option>
+                                <option value="de" {{ 'selected' if k.jezik == 'de' }}>Deutsch</option>
+                                <option value="it" {{ 'selected' if k.jezik == 'it' }}>Italiano</option>
+                            </select></label>
+                        <label class="text-xs text-slate-500">Kontakt osoba
+                            <input type="text" name="np_osoba" value="{{ k.np_osoba or '' }}"
+                                   class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900"></label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" name="u_hrvatskoj" value="1" {% if k.u_hrvatskoj %}checked{% endif %}
+                                   class="w-4 h-4 accent-emerald-500">
+                            Kupac u Hrvatskoj — obračunava se PDV 25 %
+                        </label>
+                        <div class="text-right">
+                            <button class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">Spremi</button>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+        {% else %}
+        <tbody><tr><td colspan="4" class="px-3 py-8 text-center text-slate-400">Nema kupaca{% if q %} za "{{ q }}"{% endif %}.</td></tr></tbody>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

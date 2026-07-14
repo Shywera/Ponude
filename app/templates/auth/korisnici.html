@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Korisnici{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Korisnici</h1>
+
+{% if request.query_params.get('greska') %}
+<div class="mb-4 px-3 py-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm max-w-3xl">
+    {{ request.query_params.get('greska') }}</div>
+{% endif %}
+
+<!-- novi korisnik -->
+<div class="bg-white rounded-lg shadow mb-5 max-w-3xl">
+    <div class="px-3 py-2 rounded-t-lg bg-blue-600 text-white text-[11px] font-bold uppercase tracking-wider">Novi korisnik</div>
+    <form method="post" action="/admin/korisnici" class="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <label class="text-xs text-slate-500">Korisničko ime *
+            <input type="text" name="username" required class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900"></label>
+        <label class="text-xs text-slate-500">Ime i prezime
+            <input type="text" name="ime" class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900"></label>
+        <label class="text-xs text-slate-500">Lozinka *
+            <input type="password" name="lozinka" required class="mt-0.5 w-full border rounded px-2 py-1.5 text-sm text-slate-900"></label>
+        <div class="md:col-span-3 flex flex-wrap gap-4 items-center">
+            {% for kljuc, opis in permissions.items() %}
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer" title="{{ opis }}">
+                <input type="checkbox" name="dozvole" value="{{ kljuc }}" class="w-4 h-4 accent-blue-600">
+                {{ kljuc }}</label>
+            {% endfor %}
+            <button class="ml-auto px-4 py-1.5 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">+ Kreiraj</button>
+        </div>
+    </form>
+</div>
+
+<!-- popis -->
+<div class="space-y-2 max-w-3xl">
+    {% for u in users %}
+    <div class="bg-white rounded-lg shadow" x-data="{ open: false }">
+        <div @click="open = !open" class="px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-blue-50 rounded-lg">
+            <span class="font-semibold">{{ u.username }}</span>
+            <span class="text-sm text-slate-500">{{ u.ime or '' }}</span>
+            <span class="flex gap-1 ml-2">
+                {% for d in perms_set(u.dozvole) %}
+                <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-mono">{{ d }}</span>
+                {% endfor %}
+            </span>
+            {% if not u.aktivan %}<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[11px] font-bold">isključen</span>{% endif %}
+            <span class="ml-auto text-[11px] text-slate-400">
+                {{ u.last_login.strftime('%d.%m. %H:%M') if u.last_login else 'nije se prijavio' }}</span>
+        </div>
+        <div x-show="open" x-cloak class="px-4 pb-4 border-t pt-3 space-y-3">
+            <form method="post" action="/admin/korisnici/{{ u.id }}/uredi" class="flex flex-wrap gap-3 items-center">
+                <input type="text" name="ime" value="{{ u.ime or '' }}" placeholder="ime i prezime"
+                       class="border rounded px-2 py-1.5 text-sm w-48">
+                {% set moje = perms_set(u.dozvole) %}
+                {% for kljuc, opis in permissions.items() %}
+                <label class="flex items-center gap-1.5 text-sm cursor-pointer" title="{{ opis }}">
+                    <input type="checkbox" name="dozvole" value="{{ kljuc }}" {% if kljuc in moje %}checked{% endif %}
+                           class="w-4 h-4 accent-blue-600">
+                    {{ kljuc }}</label>
+                {% endfor %}
+                <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input type="checkbox" name="aktivan" {% if u.aktivan %}checked{% endif %} class="w-4 h-4 accent-emerald-500">
+                    aktivan</label>
+                <button class="px-3 py-1.5 rounded bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800">Spremi</button>
+            </form>
+            <div class="flex gap-3">
+                <form method="post" action="/admin/korisnici/{{ u.id }}/lozinka" class="flex gap-2">
+                    <input type="password" name="lozinka" placeholder="nova lozinka" required
+                           class="border rounded px-2 py-1.5 text-sm w-44">
+                    <button class="px-3 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600">Promijeni lozinku</button>
+                </form>
+                <form method="post" action="/admin/korisnici/{{ u.id }}/obrisi"
+                      onsubmit="return confirm('Obrisati korisnika {{ u.username }}?');">
+                    <button class="px-3 py-1.5 rounded bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100">Obriši</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<p class="text-[11px] text-slate-400 mt-3 max-w-3xl">Dozvole: <b>uvoz</b> — uvoz kalkulacija i kupci · <b>ponude</b> — upiti, marže i PDF (jedini vide raspis marži) ·
+   <b>statistika</b> — zarada i marže po kupcima · <b>admin</b> — sve + korisnici i log. Pregled arhive (bez marži) ima svaki prijavljeni korisnik.</p>
+{% endblock %}

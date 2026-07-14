@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Popis etiketa{% endblock %}
+
+{% macro badge(razina, delta) %}
+    {% if delta is none %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-gray-200 text-gray-500">prva</span>
+    {% elif razina == 'kriticno' %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700">{{ delta|hr(1, true) }} %</span>
+    {% elif razina == 'paznja' %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">{{ delta|hr(1, true) }} %</span>
+    {% else %}
+        <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">{{ delta|hr(1, true) }} %</span>
+    {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-bold">Popis etiketa</h1>
+    <a href="/arhiva/uvoz" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">+ Uvezi kalkulacije</a>
+</div>
+
+<!-- statistike -->
+{% set n_upoz = redovi | selectattr('razina', 'equalto', 'kriticno') | list | length %}
+{% set n_paznja = redovi | selectattr('razina', 'equalto', 'paznja') | list | length %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="bg-white rounded-lg shadow px-4 py-3 border-l-4 border-blue-500">
+        <div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Etikete</div>
+        <div class="text-2xl font-bold">{{ redovi | length }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow px-4 py-3 border-l-4 border-slate-400">
+        <div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Kalkulacija u arhivi</div>
+        <div class="text-2xl font-bold">{{ redovi | sum(attribute='broj_kalk') }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow px-4 py-3 border-l-4 border-amber-500">
+        <div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Pažnja (Δ 5–15 %)</div>
+        <div class="text-2xl font-bold text-amber-600">{{ n_paznja }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow px-4 py-3 border-l-4 border-red-500">
+        <div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Kritično (Δ ≥ 15 %)</div>
+        <div class="text-2xl font-bold text-red-600">{{ n_upoz }}</div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+    <div class="px-3 py-2 rounded-t-lg bg-slate-700 text-white text-[11px] font-bold uppercase tracking-wider flex items-center justify-between">
+        <span>Etikete — zadnja cijena i promjena prema prethodnoj kalkulaciji</span>
+    </div>
+    <form method="get" class="flex gap-2 px-3 py-2 bg-slate-50 border-b">
+        <select name="kupac" class="border rounded px-2 py-1.5 text-sm bg-white" onchange="this.form.submit()">
+            <option value="">Svi kupci</option>
+            {% for ku in kupci %}
+            <option value="{{ ku.id }}" {% if kupac_id == ku.id %}selected{% endif %}>{{ ku.naziv }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="q" value="{{ q }}" placeholder="Traži po nazivu..."
+               class="border rounded px-3 py-1.5 text-sm w-64">
+        <button class="px-3 py-1.5 rounded bg-slate-700 text-white text-sm">Traži</button>
+    </form>
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+                <th class="px-3 py-2">Kupac</th>
+                <th class="px-3 py-2">Etiketa / proizvod</th>
+                <th class="px-3 py-2 text-right">Zadnja serija</th>
+                <th class="px-3 py-2 text-right">CK / jed. (EUR)</th>
+                <th class="px-3 py-2 text-right">CK ukupno (EUR)</th>
+                <th class="px-3 py-2 text-center">Δ vs prošla</th>
+                <th class="px-3 py-2 text-center">Kalk.</th>
+                <th class="px-3 py-2">Zadnja kalkulacija</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for r in redovi %}
+            <tr class="odd:bg-white even:bg-slate-50 hover:bg-blue-50 cursor-pointer" onclick="window.location='/arhiva/proizvod/{{ r.p.id }}'">
+                <td class="px-3 py-2 text-slate-500 whitespace-nowrap">{{ r.p.kupac.naziv[:22] }}</td>
+                <td class="px-3 py-2 font-medium text-blue-900">{{ r.p.naziv }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ r.z.serija|hr(0) if r.z.serija else '—' }} {{ r.z.serija_jedinica or '' }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ r.z.ck_po_jedinici|hr(4) if r.z.ck_po_jedinici else '—' }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ r.z.ck_total|hr(2) }}</td>
+                <td class="px-3 py-2 text-center">{{ badge(r.razina, r.delta) }}</td>
+                <td class="px-3 py-2 text-center">
+                    <span class="inline-block px-1.5 rounded bg-slate-100 text-slate-600 text-[11px] font-mono">{{ r.broj_kalk }}</span>
+                </td>
+                <td class="px-3 py-2 text-slate-500 whitespace-nowrap text-[12px]">{{ r.z.datum or '—' }} · <span class="font-mono">{{ r.z.broj }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="px-3 py-8 text-center text-slate-400">Arhiva je prazna — uvezi kalkulacije.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-[11px] text-slate-400 mt-2">Δ = promjena cijene koštanja po jedinici prema kronološki prethodnoj kalkulaciji istog proizvoda.
+   <span class="text-emerald-600 font-semibold">zeleno &lt; 5 %</span> · <span class="text-amber-600 font-semibold">žuto 5–15 %</span> · <span class="text-red-600 font-semibold">crveno ≥ 15 %</span> · klik na red otvara kronologiju i razlike</p>
+{% endblock %}

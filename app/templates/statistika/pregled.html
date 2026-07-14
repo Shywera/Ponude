@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Statistika{% endblock %}
+
+{% macro delta_chip(delta) %}
+    {% if delta is none %}<span class="text-slate-400">—</span>
+    {% elif delta >= 15 or delta <= -15 %}<span class="font-bold text-red-600">{{ delta|hr(1, true) }} %</span>
+    {% elif delta >= 5 or delta <= -5 %}<span class="font-bold text-amber-600">{{ delta|hr(1, true) }} %</span>
+    {% else %}<span class="font-semibold text-emerald-700">{{ delta|hr(1, true) }} %</span>
+    {% endif %}
+{% endmacro %}
+
+{% block content %}
+<style>
+.viz-root {
+    --surface-1: #fcfcfb;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #898781;
+    --grid: #e1e0d9;
+    --s1: #2a78d6;   /* serija 1 — plavo (materijal / glavna) */
+    --s2: #1baf7a;   /* serija 2 — aqua (rad) */
+    --div-plus: #e34948;   /* poskupljenje  (+) */
+    --div-minus: #2a78d6;  /* pojeftinjenje (−) */
+}
+.bar { height: 14px; border-radius: 0 4px 4px 0; }
+.bar-l { height: 14px; border-radius: 4px 0 0 4px; }
+</style>
+<div class="viz-root max-w-6xl">
+<h1 class="text-xl font-bold mb-4">Statistika</h1>
+
+<!-- ═══ KPI kartice ═══ -->
+<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+    {% macro kpi_kartica(label, val, sublabel='') %}
+    <div class="bg-white rounded-lg shadow px-4 py-3">
+        <div class="text-[10px] uppercase tracking-wide font-bold" style="color:var(--ink-3)">{{ label }}</div>
+        <div class="text-2xl font-bold" style="color:var(--ink-1)">{{ val }}</div>
+        {% if sublabel %}<div class="text-[11px]" style="color:var(--ink-2)">{{ sublabel }}</div>{% endif %}
+    </div>
+    {% endmacro %}
+    {{ kpi_kartica('Etikete u arhivi', kpi.proizvoda) }}
+    {{ kpi_kartica('Kalkulacije', kpi.kalkulacija) }}
+    {{ kpi_kartica('Aktivni kupci', kpi.kupaca_aktivnih) }}
+    {{ kpi_kartica('Ponude ' ~ god ~ '.', kpi.ponuda_god) }}
+    {{ kpi_kartica('Vrijednost ponuda', kpi.vrijednost_ponuda_god|hr(0) ~ ' €', god ~ '. godina') }}
+    {{ kpi_kartica('Prosj. marža', (kpi.prosj_marza|hr(1) ~ ' %') if kpi.prosj_marza is not none else '—', 'zarada ' ~ kpi.zarada_ponuda_god|hr(0) ~ ' €') }}
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+    <!-- ═══ Promjene cijena materijala ═══ -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-3 py-2 rounded-t-lg bg-slate-700 text-white text-[11px] font-bold uppercase tracking-wider">
+            Promjene nabavnih cijena materijala — prva → zadnja kalkulacija
+        </div>
+        <div class="px-3 py-1.5 text-[11px] border-b" style="color:var(--ink-2); border-color:var(--grid)">
+            <span class="inline-block w-3 h-3 rounded-sm align-middle mr-1" style="background:var(--div-plus)"></span>poskupljenje
+            <span class="inline-block w-3 h-3 rounded-sm align-middle ml-3 mr-1" style="background:var(--div-minus)"></span>pojeftinjenje
+        </div>
+        <table class="w-full text-sm">
+            <tbody class="divide-y" style="border-color:var(--grid)">
+                {% for m in materijali %}
+                <tr class="hover:bg-blue-50" title="{{ m.naziv }} ({{ m.sifra }}): {{ m.prva|hr(4) }} → {{ m.zadnja|hr(4) }} EUR, {{ m.n }} kalkulacija">
+                    <td class="px-3 py-1.5 w-64">
+                        <div class="truncate" style="color:var(--ink-1)">{{ m.naziv[:38] }}</div>
+                        <div class="font-mono text-[10px]" style="color:var(--ink-3)">{{ m.prva|hr(4) }} → {{ m.zadnja|hr(4) }} €</div>
+                    </td>
+                    <td class="px-1 py-1.5">
+                        <div class="flex items-center">
+                            <div class="w-1/2 flex justify-end">
+                                {% if m.delta_pct < 0 %}<div class="bar-l" style="width:{{ m.sirina }}%; background:var(--div-minus)"></div>{% endif %}
+                            </div>
+                            <div class="w-px self-stretch" style="background:var(--grid)"></div>
+                            <div class="w-1/2">
+                                {% if m.delta_pct > 0 %}<div class="bar" style="width:{{ m.sirina }}%; background:var(--div-plus)"></div>{% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-3 py-1.5 text-right font-mono whitespace-nowrap w-20" style="color:var(--ink-1)">{{ m.delta_pct|hr(1, true) }} %</td>
+                </tr>
+                {% else %}
+                <tr><td class="px-3 py-6 text-center" style="color:var(--ink-3)">Još nema materijala s promjenom cijene (treba ≥ 2 kalkulacije s istim materijalom).</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ═══ Kretanje CK po jedinici ═══ -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-3 py-2 rounded-t-lg bg-slate-700 text-white text-[11px] font-bold uppercase tracking-wider">
+            Kretanje cijene koštanja po jedinici — proizvodi s više kalkulacija
+        </div>
+        <table class="w-full text-sm">
+            <thead class="text-left text-[10px] uppercase" style="color:var(--ink-3)">
+                <tr class="border-b" style="border-color:var(--grid)">
+                    <th class="px-3 py-1.5">Etiketa</th>
+                    <th class="px-3 py-1.5">Kretanje</th>
+                    <th class="px-3 py-1.5 text-right">prva → zadnja</th>
+                    <th class="px-3 py-1.5 text-right">Δ</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y" style="border-color:var(--grid)">
+                {% for r in lanci %}
+                <tr class="hover:bg-blue-50 cursor-pointer" onclick="window.location='/arhiva/proizvod/{{ r.p.id }}'"
+                    title="{{ r.n }} kalkulacija, {{ r.od }} → {{ r.do }}">
+                    <td class="px-3 py-1.5">
+                        <div class="truncate max-w-[220px]" style="color:var(--ink-1)">{{ r.p.naziv[:36] }}</div>
+                        <div class="text-[10px]" style="color:var(--ink-3)">{{ r.p.kupac.naziv[:24] }} · {{ r.n }} kalk.</div>
+                    </td>
+                    <td class="px-3 py-1.5">
+                        {% if r.spark %}
+                        <svg width="{{ r.spark.w }}" height="{{ r.spark.h }}" role="img" aria-label="kretanje cijene">
+                            <polyline points="{{ r.spark.points }}" fill="none" stroke="var(--s1)" stroke-width="2"
+                                      stroke-linejoin="round" stroke-linecap="round"/>
+                            <circle cx="{{ r.spark.zadnja[0] }}" cy="{{ r.spark.zadnja[1] }}" r="4" fill="var(--s1)"
+                                    stroke="var(--surface-1)" stroke-width="2"/>
+                        </svg>
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-1.5 text-right font-mono whitespace-nowrap" style="color:var(--ink-2)">
+                        {{ r.prva|hr(4) }} → {{ r.zadnja|hr(4) }}</td>
+                    <td class="px-3 py-1.5 text-right whitespace-nowrap">{{ delta_chip(r.delta_pct) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-3 py-6 text-center" style="color:var(--ink-3)">Još nema proizvoda s ≥ 2 kalkulacije.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ═══ Struktura troška po kupcu ═══ -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-3 py-2 rounded-t-lg bg-slate-700 text-white text-[11px] font-bold uppercase tracking-wider">
+            Struktura troška po kupcu — materijal vs rad
+        </div>
+        <div class="px-3 py-1.5 text-[11px] border-b" style="color:var(--ink-2); border-color:var(--grid)">
+            <span class="inline-block w-3 h-3 rounded-sm align-middle mr-1" style="background:var(--s1)"></span>materijal
+            <span class="inline-block w-3 h-3 rounded-sm align-middle ml-3 mr-1" style="background:var(--s2)"></span>rad
+        </div>
+        <table class="w-full text-sm">
+            <tbody class="divide-y" style="border-color:var(--grid)">
+                {% for s in struktura %}
+                <tr class="hover:bg-blue-50" title="{{ s.kupac }}: materijal {{ s.mat|hr(0) }} €, rad {{ s.rad|hr(0) }} €, {{ s.n }} kalkulacija">
+                    <td class="px-3 py-2 w-52">
+                        <div class="truncate" style="color:var(--ink-1)">{{ s.kupac[:28] }}</div>
+                        <div class="text-[10px]" style="color:var(--ink-3)">{{ s.ukupno|hr(0) }} € · {{ s.n }} kalk.</div>
+                    </td>
+                    <td class="px-1 py-2">
+                        <div class="flex items-center gap-[2px]">
+                            <div class="bar" style="width:{{ '%.1f'|format(s.mat_pct * 0.96) }}%; background:var(--s1); border-radius:4px 0 0 4px"></div>
+                            <div class="bar" style="width:{{ '%.1f'|format(s.rad_pct * 0.96) }}%; background:var(--s2); border-radius:0 4px 4px 0"></div>
+                        </div>
+                    </td>
+                    <td class="px-3 py-2 text-right font-mono text-[11px] whitespace-nowrap" style="color:var(--ink-2)">
+                        {{ s.mat_pct|hr(0) }} % / {{ s.rad_pct|hr(0) }} %</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ═══ Marže i zarada po kupcu ═══ -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-3 py-2 rounded-t-lg bg-slate-700 text-white text-[11px] font-bold uppercase tracking-wider">
+            Zarada po kupcu — iz izdanih ponuda
+        </div>
+        <table class="w-full text-sm">
+            <thead class="text-left text-[10px] uppercase" style="color:var(--ink-3)">
+                <tr class="border-b" style="border-color:var(--grid)">
+                    <th class="px-3 py-1.5">Kupac</th>
+                    <th class="px-3 py-1.5">Zarada</th>
+                    <th class="px-3 py-1.5 text-right">EUR</th>
+                    <th class="px-3 py-1.5 text-right">prosj. marža</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y" style="border-color:var(--grid)">
+                {% for m in marze %}
+                <tr class="hover:bg-blue-50" title="{{ m.kupac }}: {{ m.n }} ponuda, vrijednost {{ m.vrijednost|hr(0) }} €">
+                    <td class="px-3 py-2 w-52">
+                        <div class="truncate" style="color:var(--ink-1)">{{ m.kupac[:28] }}</div>
+                        <div class="text-[10px]" style="color:var(--ink-3)">{{ m.n }} ponuda · {{ m.vrijednost|hr(0) }} €</div>
+                    </td>
+                    <td class="px-1 py-2">
+                        <div class="bar" style="width:{{ m.sirina }}%; background:var(--s1); border-radius:4px"></div>
+                    </td>
+                    <td class="px-3 py-2 text-right font-mono whitespace-nowrap" style="color:var(--ink-1)">{{ m.zarada|hr(0) }}</td>
+                    <td class="px-3 py-2 text-right font-mono whitespace-nowrap" style="color:var(--ink-2)">{{ m.prosj|hr(1) }} %</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-3 py-6 text-center" style="color:var(--ink-3)">Još nema izdanih ponuda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<p class="text-[11px] mt-3" style="color:var(--ink-3)">Promjene cijena materijala uspoređuju jediničnu nabavnu cijenu iste šifre između prve i zadnje kalkulacije u kojoj se pojavljuje.
+   Zarada = prodajna vrijednost − cijena koštanja, iz zamrznutih stavki ponuda. Prijelaz mišem preko retka daje detalje.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}Upit: {{ u.naslov }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl">
+<nav class="text-xs text-slate-500 mb-2">
+    <a href="/upiti" class="text-blue-600 hover:underline">Upiti</a>
+    <span class="mx-1">›</span>
+    <span>{{ u.naslov }}</span>
+</nav>
+
+<div class="flex items-center justify-between mb-1">
+    <h1 class="text-xl font-bold">{{ u.naslov }}</h1>
+    <div class="flex gap-2">
+        {% if not u.ponude %}
+        <form method="post" action="/upiti/{{ u.id }}/obrisi"
+              onsubmit="return confirm('Obrisati cijeli upit?');">
+            <button class="px-3 py-1.5 rounded bg-red-50 text-red-600 text-sm hover:bg-red-100">Obriši upit</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+<p class="text-sm text-slate-500 mb-4">{{ u.kupac.naziv }} · {{ u.datum }}
+{% for po in u.ponude %} · <a class="text-blue-600 hover:underline font-mono" href="/ponude/{{ po.id }}">ponuda {{ po.broj }}</a>{% endfor %}</p>
+
+<!-- ═══ KORAK 1: dodavanje etiketa ═══ -->
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-3 py-2 rounded-t-lg bg-sky-600 text-white text-[11px] font-bold uppercase tracking-wider">
+        Korak 1 — Dodaj etikete u upit
+    </div>
+    <div class="p-4">
+        {% if proizvodi %}
+        <form method="post" action="/upiti/{{ u.id }}/stavka" class="flex gap-2">
+            <select name="proizvod_id" class="border rounded px-2 py-1.5 text-sm bg-white flex-1">
+                {% for p in proizvodi %}
+                <option value="{{ p.id }}">{{ p.naziv }}</option>
+                {% endfor %}
+            </select>
+            <button class="px-4 py-1.5 rounded bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700">+ Dodaj</button>
+        </form>
+        <p class="text-[11px] text-slate-400 mt-1.5">Stavka se veže na najnoviju kalkulaciju proizvoda iz arhive.</p>
+        {% else %}
+        <p class="text-sm text-slate-400">Svi proizvodi ovog kupca su već u upitu (ili nemaju kalkulacije u arhivi).</p>
+        {% endif %}
+        <form method="post" action="/upiti/{{ u.id }}/radna" enctype="multipart/form-data"
+              class="flex gap-2 items-center mt-3 pt-3 border-t">
+            <span class="text-[11px] uppercase font-bold text-slate-500">ili uvezi radnu tablicu:</span>
+            <input type="file" name="datoteka" accept=".xlsx" required class="text-sm flex-1 border rounded p-1.5 bg-slate-50">
+            <button class="px-4 py-1.5 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600">📊 Uvezi</button>
+        </form>
+        <p class="text-[11px] text-slate-400 mt-1">Radna tablica: stavke se automatski spajaju s arhivom preko broja ERP kalkulacije + povlači pakiranje za DAP izračun.</p>
+    </div>
+</div>
+
+{% if radna_rezultat %}
+<div class="space-y-1.5 mb-4">
+    {% for r in radna_rezultat %}
+    <div class="bg-white rounded-lg shadow px-3 py-2 text-sm border-l-4
+                {% if r.status == 'ok' %}border-emerald-500{% elif r.status == 'preskoceno' %}border-slate-300{% else %}border-red-500{% endif %}">
+        <span class="font-mono text-[12px] text-slate-500">{{ r.oznaka }}</span> —
+        <span class="{% if r.status == 'greska' %}text-red-700{% endif %}">{{ r.poruka }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══ KORAK 2: marže ═══ -->
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-3 py-2 rounded-t-lg bg-emerald-600 text-white text-[11px] font-bold uppercase tracking-wider flex items-center justify-between">
+        <span>Korak 2 — Odaberi maržu za svaku etiketu</span>
+        {% if u.stavke %}
+        <form method="post" action="/upiti/{{ u.id }}/ai-marze">
+            <button class="px-3 py-1 rounded bg-violet-500 text-white text-[11px] font-bold hover:bg-violet-400"
+                    title="AI predloži maržu za svaku stavku — iz povijesti, trenda troška i tvojih prijašnjih odluka">
+                ✦ AI predloži marže</button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-emerald-50 border-b border-emerald-100 text-sm">
+        <span class="text-[11px] uppercase font-bold text-slate-500 mr-1">Raspis marži u izborniku:</span>
+        <form method="get" class="flex items-center gap-1.5">
+            <label class="text-[11px] uppercase font-bold text-slate-500">od</label>
+            <input type="number" name="od" value="{{ od }}" min="0" max="300" class="border rounded px-2 py-1 w-16 text-right font-mono text-sm">
+            <label class="text-[11px] uppercase font-bold text-slate-500">do</label>
+            <input type="number" name="do" value="{{ do }}" min="0" max="300" class="border rounded px-2 py-1 w-16 text-right font-mono text-sm">
+            <label class="text-[11px] uppercase font-bold text-slate-500">po</label>
+            <input type="number" name="korak" value="{{ korak }}" min="1" max="50" class="border rounded px-2 py-1 w-14 text-right font-mono text-sm">
+            <button class="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">Primijeni</button>
+        </form>
+        <span class="text-[11px] text-slate-400 ml-2">npr. 30–70 po 2, ili 50–80 po 1</span>
+    </div>
+
+    <div>
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+                <th class="px-3 py-2">Etiketa</th>
+                <th class="px-3 py-2">Kalkulacija</th>
+                <th class="px-3 py-2 text-right">Količina</th>
+                <th class="px-3 py-2 text-right">CK (EUR)</th>
+                <th class="px-3 py-2 text-center w-40">Marža</th>
+                <th class="px-3 py-2 text-right">Prodajna (EUR)</th>
+                <th class="px-3 py-2 text-right">Po jedinici</th>
+                <th class="px-3 py-2 text-right">Zarada</th>
+                <th class="px-3 py-2"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for s in u.stavke %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-2 font-medium">
+                    <a href="/arhiva/proizvod/{{ s.proizvod_id }}" class="hover:underline">{{ s.proizvod.naziv }}</a>
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                    <a href="/arhiva/kalkulacija/{{ s.kalkulacija_id }}?stavka={{ s.id }}"
+                       class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-violet-50 border border-violet-300 text-violet-800 text-[12px] font-semibold hover:bg-violet-100"
+                       title="Otvori kalkulaciju i odaberi maržu iz raspisa">
+                        📄 {{ s.kalkulacija.broj }}
+                    </a>
+                    <div class="text-slate-400 text-[11px] mt-0.5">{{ s.kalkulacija.datum or '—' }} · klik = kalkulacija + odabir marže</div>
+                </td>
+                <td class="px-3 py-2 text-right font-mono whitespace-nowrap">
+                    {{ s.kolicina|hr(0) if s.kolicina else '—' }} {{ s.kalkulacija.serija_jedinica or '' }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono">{{ s.ck_total|hr(2) }}</td>
+
+                <!-- ODABIR MARŽE IZ RASPISA -->
+                <td class="px-3 py-2 text-center" x-data="{ open: false }"
+                    @click.outside="open = false" @keydown.escape.window="open = false">
+                    <button @click="open = !open"
+                            class="px-3 py-1.5 rounded-lg border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-mono font-bold text-sm hover:bg-emerald-100 w-24">
+                        {{ s.marza_pct|hrg }} % ▾
+                    </button>
+                    {% if s.ai_marza_pct is not none %}
+                    <div class="mt-1 text-left bg-violet-50 border border-violet-200 rounded-lg px-2 py-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[11px] font-bold text-violet-800">✦ AI: {{ s.ai_marza_pct|hrg }} %</span>
+                            {% if s.marza_pct == s.ai_marza_pct %}
+                            <span class="text-[10px] font-bold text-emerald-700">✓ prihvaćeno</span>
+                            {% else %}
+                            <form method="post" action="/upiti/{{ u.id }}/stavka/{{ s.id }}/ai-prihvati">
+                                <button class="px-2 py-0.5 rounded bg-violet-600 text-white text-[10px] font-bold hover:bg-violet-700"
+                                        title="Prihvati AI prijedlog — postavlja maržu i uči sustav">✓ prihvati</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        <div class="text-[10px] text-violet-700 leading-snug mt-0.5">{{ s.ai_obrazlozenje }}</div>
+                    </div>
+                    {% endif %}
+                    <div x-show="open" x-cloak
+                         class="absolute z-20 mt-1 bg-white border border-slate-300 rounded-lg shadow-xl w-[440px] -ml-40">
+                        <div class="px-3 py-1.5 bg-emerald-600 text-white text-[11px] font-bold uppercase tracking-wider rounded-t-lg text-left">
+                            Raspis marži — {{ s.proizvod.naziv[:40] }}
+                        </div>
+                        <div class="max-h-72 overflow-y-auto">
+                            <table class="w-full text-[13px]">
+                                <thead class="bg-emerald-50 text-emerald-800 text-[10px] uppercase sticky top-0">
+                                    <tr>
+                                        <th class="px-2 py-1.5 text-right">marža %</th>
+                                        <th class="px-2 py-1.5 text-right">prodajna (EUR)</th>
+                                        <th class="px-2 py-1.5 text-right">po jedinici</th>
+                                        <th class="px-2 py-1.5 text-right">zarada</th>
+                                        <th class="px-2 py-1.5"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    {% for pct in marza_opcije %}
+                                    {% set pv = (pct / 100 + 1) * s.ck_total %}
+                                    <tr class="hover:bg-emerald-50 {{ 'bg-emerald-100 font-bold' if pct == s.marza_pct|int and (s.marza_pct - s.marza_pct|int) == 0 else '' }}">
+                                        <td class="px-2 py-1 text-right font-mono font-semibold">{{ pct }}</td>
+                                        <td class="px-2 py-1 text-right font-mono">{{ pv|hr(2) }}</td>
+                                        <td class="px-2 py-1 text-right font-mono">{{ (pv / s.kolicina)|hr(4) if s.kolicina else '—' }}</td>
+                                        <td class="px-2 py-1 text-right font-mono text-emerald-700">{{ (pv - s.ck_total)|hr(2) }}</td>
+                                        <td class="px-2 py-1 text-right">
+                                            <form method="post" action="/upiti/{{ u.id }}/stavka/{{ s.id }}/uredi">
+                                                <input type="hidden" name="marza_pct" value="{{ pct }}">
+                                                <button class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700">Odaberi</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <form method="post" action="/upiti/{{ u.id }}/stavka/{{ s.id }}/uredi"
+                              class="flex items-center gap-1.5 px-3 py-2 border-t bg-slate-50 rounded-b-lg">
+                            <span class="text-[11px] uppercase font-bold text-slate-500">ručno:</span>
+                            <input type="number" name="marza_pct" value="{{ '%g'|format(s.marza_pct) }}" step="0.5" min="0" max="500"
+                                   class="border rounded px-2 py-1 w-20 text-right text-sm font-mono">
+                            <button class="px-2 py-1 rounded bg-slate-700 text-white text-[11px] font-semibold hover:bg-slate-800">Spremi</button>
+                        </form>
+                    </div>
+                </td>
+
+                <td class="px-3 py-2 text-right font-mono font-semibold">{{ s.prodajna_ukupno|hr(2) }}</td>
+                <td class="px-3 py-2 text-right font-mono">{{ s.prodajna_po_jedinici|hr(4) if s.prodajna_po_jedinici else '—' }}</td>
+                <td class="px-3 py-2 text-right font-mono text-emerald-700">{{ s.marza_iznos|hr(2) }}</td>
+                <td class="px-3 py-2 text-right">
+                    <form method="post" action="/upiti/{{ u.id }}/stavka/{{ s.id }}/obrisi">
+                        <button class="text-red-500 hover:text-red-700 text-sm" title="Ukloni stavku">✕</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="px-3 py-8 text-center text-slate-400">Upit je prazan — dodaj etikete u koraku 1.</td></tr>
+            {% endfor %}
+            {% if u.stavke %}
+            <tr class="bg-emerald-50 font-bold border-t-2 border-emerald-200">
+                <td class="px-3 py-2.5" colspan="3">UKUPNO</td>
+                <td class="px-3 py-2.5 text-right font-mono">{{ ukupno_ck|hr(2) }}</td>
+                <td></td>
+                <td class="px-3 py-2.5 text-right font-mono">{{ ukupno_prodajna|hr(2) }}</td>
+                <td></td>
+                <td class="px-3 py-2.5 text-right font-mono text-emerald-700">{{ (ukupno_prodajna - ukupno_ck)|hr(2) }}</td>
+                <td></td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- ═══ KORAK 2b: logistika / DAP ═══ -->
+{% if u.stavke %}
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-3 py-2 rounded-t-lg bg-amber-500 text-white text-[11px] font-bold uppercase tracking-wider">
+        Korak 2b — Logistika i DAP (za excel ponudu)
+    </div>
+    <div class="flex flex-wrap items-center gap-2 px-3 py-2 bg-amber-50 border-b border-amber-100 text-sm">
+        <form method="post" action="/upiti/{{ u.id }}/prijevoz" class="flex items-center gap-2">
+            <span class="text-[11px] uppercase font-bold text-slate-500">Ukupni prijevoz (kamion), EUR:</span>
+            <input type="text" name="prijevoz_ukupno" value="{{ u.prijevoz_ukupno|hrg if u.prijevoz_ukupno else '' }}"
+                   placeholder="npr. 4500" class="border rounded px-2 py-1 w-28 text-right font-mono">
+            <button class="px-3 py-1 rounded bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600">Spremi</button>
+        </form>
+        {% if log.ukupno_paleta %}
+        <span class="text-[12px] text-slate-600 ml-2">ukupno <b>{{ log.ukupno_paleta }}</b> paleta
+        {% if log.po_paleti %} → <b>{{ log.po_paleti|hr(2) }} EUR/paleti</b>{% endif %}</span>
+        {% endif %}
+    </div>
+    <table class="w-full text-sm">
+        <thead class="bg-amber-50 text-left text-[10px] uppercase tracking-wide text-amber-800">
+            <tr>
+                <th class="px-3 py-1.5">Etiketa</th>
+                <th class="px-2 py-1.5 text-right">kom/kutiji</th>
+                <th class="px-2 py-1.5 text-right">kutija/paleti</th>
+                <th class="px-2 py-1.5 text-right">paleta</th>
+                <th class="px-2 py-1.5 text-right">prijevoz/stavci</th>
+                <th class="px-2 py-1.5 text-right">EXW /1000</th>
+                <th class="px-2 py-1.5 text-right">prijevoz /1000</th>
+                <th class="px-2 py-1.5 text-right">DAP /1000</th>
+                <th class="px-2 py-1.5 text-right">alat (EUR)</th>
+                <th class="px-2 py-1.5"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for s in u.stavke %}
+            {% set d = log.po_stavci.get(s.id, {}) %}
+            <tr class="odd:bg-white even:bg-slate-50">
+                <td class="px-3 py-1.5">{{ s.proizvod.naziv[:38] }}</td>
+                <td class="px-2 py-1.5 text-right">
+                    <input form="lg{{ s.id }}" type="text" name="kom_kutija" value="{{ s.kom_kutija|hrg if s.kom_kutija else '' }}"
+                           class="border rounded px-1.5 py-0.5 w-20 text-right font-mono text-[12px]"></td>
+                <td class="px-2 py-1.5 text-right">
+                    <input form="lg{{ s.id }}" type="text" name="kutija_paleta" value="{{ s.kutija_paleta|hrg if s.kutija_paleta else '' }}"
+                           class="border rounded px-1.5 py-0.5 w-16 text-right font-mono text-[12px]"></td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ d.palete or '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ d.prijevoz_stavka|hr(2) if d.prijevoz_stavka is not none else '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ d.exw_1000|hr(4) if d.exw_1000 is not none else '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono">{{ d.prijevoz_1000|hr(4) if d.prijevoz_1000 is not none else '—' }}</td>
+                <td class="px-2 py-1.5 text-right font-mono font-bold {{ 'text-amber-700' if d.dap_1000 is not none }}">{{ d.dap_1000|hr(4) if d.dap_1000 is not none else '—' }}</td>
+                <td class="px-2 py-1.5 text-right">
+                    <input form="lg{{ s.id }}" type="text" name="alat_cijena" value="{{ s.alat_cijena|hrg if s.alat_cijena else '' }}"
+                           class="border rounded px-1.5 py-0.5 w-20 text-right font-mono text-[12px]"></td>
+                <td class="px-2 py-1.5">
+                    <form id="lg{{ s.id }}" method="post" action="/upiti/{{ u.id }}/stavka/{{ s.id }}/logistika">
+                        <button class="text-amber-600 text-xs font-bold hover:underline" title="Spremi pakiranje/alat">✓</button>
+                    </form></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="text-[11px] text-slate-400 px-3 py-2">DAP /1000 = EXW /1000 (kalkulacija + marža) + prijevoz /1000. Prijevoz: ukupni iznos ÷ ukupno paleta → × palete stavke → ÷ (kom/1000). Pakiranje dolazi iz radne tablice ili se upiše ručno.</p>
+</div>
+{% endif %}
+
+<!-- ═══ KORAK 3: generiranje ponude ═══ -->
+{% if u.stavke %}
+<div class="bg-white rounded-lg shadow mb-4">
+    <div class="px-3 py-2 rounded-t-lg bg-violet-600 text-white text-[11px] font-bold uppercase tracking-wider">
+        Korak 3 — Generiraj ponudu
+    </div>
+    <div class="p-4 flex items-center justify-between">
+        <p class="text-sm text-slate-600">Stavke i marže se <b>zamrzavaju</b> u ponudu s automatskim brojem
+           i uvodnim tekstom. Marža i CK ne izlaze u PDF.</p>
+        <div class="flex gap-2">
+            <form method="post" action="/upiti/{{ u.id }}/ponuda"
+                  onsubmit="return confirm('Generirati Medvedgrad (PDF) ponudu?');">
+                <input type="hidden" name="stil" value="medvedgrad">
+                <button class="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 whitespace-nowrap">
+                    ➜ Medvedgrad ponuda (PDF)</button>
+            </form>
+            <form method="post" action="/upiti/{{ u.id }}/ponuda"
+                  onsubmit="return confirm('Generirati Excel (DAP) ponudu?');">
+                <input type="hidden" name="stil" value="excel">
+                <button class="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800 whitespace-nowrap">
+                    ➜ Excel ponuda (DAP)</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<p class="text-[11px] text-slate-400">Prodajna = (marža/100 + 1) × CK — ista formula kao u izvornim Excel kalkulacijama.</p>
+</div>
+{% endblock %}
